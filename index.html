@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>World Cup 2026: Pixel Penalty</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main id="app">
+    <!-- Screen 1: Team Selection -->
+    <section id="screen-select" class="screen active">
+      <div class="card">
+        <h1 class="title">World Cup 2026</h1>
+        <h2 class="subtitle">Pixel Penalty</h2>
+
+        <div class="team-grid" id="team-grid" role="radiogroup" aria-label="Select your team">
+          <!-- Teams injected by JS -->
+        </div>
+
+        <button id="btn-start" class="btn btn-primary" disabled aria-disabled="true">
+          Select a Team
+        </button>
+      </div>
+    </section>
+
+    <!-- Screen 2: Game -->
+    <section id="screen-game" class="screen">
+      <div class="game-container">
+        <header class="game-header">
+          <div class="team-display">
+            <span class="pixel-flag" id="game-flag"></span>
+            <span id="game-team-name">Team</span>
+          </div>
+          <div class="stats">
+            <span class="stat">
+              <span class="stat-label">Shots</span>
+              <span class="stat-value" id="shots-remaining">5</span>
+            </span>
+            <span class="stat">
+              <span class="stat-label">Goals</span>
+              <span class="stat-value" id="goals-scored">0</span>
+            </span>
+          </div>
+        </header>
+
+        <div class="canvas-wrapper">
+          <canvas id="game-canvas" tabindex="0" aria-label="Penalty shootout game"></canvas>
+        </div>
+
+        <div class="controls">
+          <div class="aim-control">
+            <label for="aim-slider" class="control-label">Aim</label>
+            <input type="range" id="aim-slider" min="-45" max="45" value="0" class="slider">
+            <div class="aim-indicator">
+              <span class="aim-left">Left</span>
+              <span class="aim-center">Center</span>
+              <span class="aim-right">Right</span>
+            </div>
+          </div>
+
+          <div class="power-control">
+            <label for="power-slider" class="control-label">Power</label>
+            <input type="range" id="power-slider" min="30" max="100" value="70" class="slider slider-power">
+            <div class="power-indicator">
+              <span id="power-value">70%</span>
+            </div>
+          </div>
+
+          <button id="btn-shoot" class="btn btn-primary btn-shoot">Shoot!</button>
+          <button id="btn-reset" class="btn-link">Reset Shot</button>
+        </div>
+
+        <div class="keyboard-hint" aria-hidden="true">
+          <kbd>&larr;</kbd><kbd>&rarr;</kbd> Aim &nbsp; <kbd>&uarr;</kbd><kbd>&darr;</kbd> Power &nbsp; <kbd>Space</kbd> Shoot
+        </div>
+      </div>
+    </section>
+
+    <!-- Screen 3: Results -->
+    <section id="screen-results" class="screen">
+      <div class="card results-card">
+        <h2 class="results-title" id="results-title">Final Score</h2>
+
+        <div class="results-display">
+          <div class="result-team">
+            <span class="pixel-flag pixel-flag-large" id="results-flag"></span>
+            <span class="result-team-name" id="results-team-name">Team</span>
+          </div>
+
+          <div class="score-display">
+            <span class="score-number" id="final-goals">0</span>
+            <span class="score-separator">/</span>
+            <span class="score-number score-total">5</span>
+          </div>
+        </div>
+
+        <div class="results-breakdown">
+          <div class="breakdown-item">
+            <span class="breakdown-label">Goals</span>
+            <span class="breakdown-value" id="breakdown-goals">0</span>
+          </div>
+          <div class="breakdown-item">
+            <span class="breakdown-label">Saves</span>
+            <span class="breakdown-value" id="breakdown-saves">0</span>
+          </div>
+          <div class="breakdown-item">
+            <span class="breakdown-label">Misses</span>
+            <span class="breakdown-value" id="breakdown-misses">0</span>
+          </div>
+        </div>
+
+        <div class="results-message" id="results-message"></div>
+
+        <button id="btn-play-again" class="btn btn-primary">Play Again</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
