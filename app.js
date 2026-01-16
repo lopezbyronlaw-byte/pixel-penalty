@@ -45,39 +45,40 @@ const GAME_CONFIG = {
   ballRadius: 5,
   ballStartX: 80,
   ballStartY: 170,
-  goalY: 12,
-  goalWidth: 100,      // Much bigger goal (was 60)
-  goalHeight: 35,      // Taller goal (was 20)
-  postWidth: 3,
-  keeperWidth: 10,     // Smaller keeper for bigger goal
-  keeperHeight: 22,    // Taller, more human proportions
-  keeperY: 28,
+  goalY: 8,
+  goalWidth: 150,      // Much bigger goal! (was 100, then 60 originally)
+  goalHeight: 70,      // Much taller goal! (was 35, then 20 originally)
+  postWidth: 2,
+  keeperWidth: 5,      // 50% skinnier (was 10)
+  keeperHeight: 20,    // Taller, more human proportions
+  keeperY: 52,         // Adjusted for taller goal
   friction: 0.985,
   minVelocity: 0.1
 };
 
-// Difficulty settings (adjusted for bigger goal)
+// Difficulty settings (adjusted for MUCH bigger goal)
+// Keeper is now skinnier and can't magically reach corner shots
 const DIFFICULTY_LEVELS = {
   easy: {
     name: 'Easy',
-    keeperSpeed: 0.6,
-    keeperReactionTime: 900,
-    keeperDiveChance: 0.25,
-    keeperReachMultiplier: 0.7
+    keeperSpeed: 0.4,
+    keeperReactionTime: 1000,
+    keeperDiveChance: 0.2,
+    keeperReachMultiplier: 0.5    // Can't reach far corners
   },
   medium: {
     name: 'Medium',
-    keeperSpeed: 1.0,
-    keeperReactionTime: 600,
-    keeperDiveChance: 0.45,
-    keeperReachMultiplier: 1.0
+    keeperSpeed: 0.7,
+    keeperReactionTime: 700,
+    keeperDiveChance: 0.4,
+    keeperReachMultiplier: 0.7    // Limited reach
   },
   hard: {
     name: 'Hard',
-    keeperSpeed: 1.5,
-    keeperReactionTime: 350,
-    keeperDiveChance: 0.65,
-    keeperReachMultiplier: 1.4
+    keeperSpeed: 1.0,
+    keeperReactionTime: 450,
+    keeperDiveChance: 0.6,
+    keeperReachMultiplier: 0.9    // Still can't reach extreme corners
   }
 };
 
@@ -532,9 +533,12 @@ function updateKeeper() {
       keeper.diveProgress = 1;
     }
 
-    // Move towards target during dive
+    // Move towards target during dive - LIMITED REACH!
+    // Keeper can't magically reach the entire goal from the opposite side
     const targetDelta = keeper.targetX - keeper.x;
-    keeper.x += targetDelta * 0.15 * difficulty.keeperReachMultiplier;
+    const maxDiveDistance = 35 * difficulty.keeperReachMultiplier; // Max distance he can dive
+    const clampedDelta = Math.max(-maxDiveDistance, Math.min(maxDiveDistance, targetDelta));
+    keeper.x += clampedDelta * 0.15;
 
     return;
   }
@@ -551,8 +555,10 @@ function updateKeeper() {
     const keeperCenter = keeper.x + GAME_CONFIG.keeperWidth / 2;
     const distanceFromKeeper = Math.abs(predictedX - keeperCenter);
 
-    // Decide whether to dive
-    const shouldDive = distanceFromKeeper > 15 &&
+    // Decide whether to dive (only if ball is somewhat reachable)
+    const maxReachDistance = 50 * difficulty.keeperReachMultiplier;
+    const shouldDive = distanceFromKeeper > 8 &&
+                      distanceFromKeeper < maxReachDistance &&
                       Math.random() < difficulty.keeperDiveChance &&
                       ball.y < GAME_CONFIG.canvasHeight / 2;
 
@@ -844,7 +850,7 @@ function drawGoal() {
 
 function drawKeeper() {
   const keeper = state.keeper;
-  const kw = GAME_CONFIG.keeperWidth;
+  const kw = GAME_CONFIG.keeperWidth; // Now 5 pixels - skinny!
   const kh = GAME_CONFIG.keeperHeight;
   const ky = GAME_CONFIG.keeperY;
 
@@ -865,65 +871,66 @@ function drawKeeper() {
     }
   }
 
-  // More realistic goalkeeper with better proportions
+  // Skinny goalkeeper (5 pixels wide)
   const centerX = keeper.x + kw / 2;
 
   // Head (skin tone)
   ctx.fillStyle = '#f4c4a0';
   ctx.beginPath();
-  ctx.arc(centerX, ky - 2, 3, 0, Math.PI * 2);
+  ctx.arc(centerX, ky - 2, 2.5, 0, Math.PI * 2);
   ctx.fill();
 
   // Jersey (goalkeeper color)
   ctx.fillStyle = '#38b764'; // Green keeper jersey
-  // Torso
-  ctx.fillRect(keeper.x + 2, ky + 2, kw - 4, 8);
+  // Skinny torso
+  ctx.fillRect(keeper.x + 1, ky + 1, kw - 2, 7);
 
-  // Arms
-  const armExtension = keeper.state !== 'idle' ? keeper.diveProgress * 8 : 0;
+  // Arms - position depends on state
+  const armExtension = keeper.state !== 'idle' ? keeper.diveProgress * 10 : 0;
 
   if (keeper.state === 'diving-left') {
-    // Left arm extended
-    ctx.fillRect(keeper.x - 2 - armExtension, ky + 3, 4 + armExtension, 3);
+    // Left arm extended far
+    ctx.fillRect(keeper.x - 1 - armExtension, ky + 2, 2 + armExtension, 2);
     // Right arm
-    ctx.fillRect(keeper.x + kw - 2, ky + 3, 3, 3);
+    ctx.fillRect(keeper.x + kw - 1, ky + 2, 2, 2);
     // Gloves
     ctx.fillStyle = '#ffcd75';
-    ctx.fillRect(keeper.x - 3 - armExtension, ky + 2, 3, 4);
-    ctx.fillStyle = '#38b764';
+    ctx.fillRect(keeper.x - 2 - armExtension, ky + 1, 2, 3);
+    ctx.fillRect(keeper.x + kw - 1, ky + 1, 2, 3);
   } else if (keeper.state === 'diving-right') {
     // Left arm
-    ctx.fillRect(keeper.x - 1, ky + 3, 3, 3);
-    // Right arm extended
-    ctx.fillRect(keeper.x + kw - 2, ky + 3, 4 + armExtension, 3);
+    ctx.fillRect(keeper.x - 1, ky + 2, 2, 2);
+    // Right arm extended far
+    ctx.fillRect(keeper.x + kw - 1, ky + 2, 2 + armExtension, 2);
     // Gloves
     ctx.fillStyle = '#ffcd75';
-    ctx.fillRect(keeper.x + kw + armExtension, ky + 2, 3, 4);
-    ctx.fillStyle = '#38b764';
+    ctx.fillRect(keeper.x - 1, ky + 1, 2, 3);
+    ctx.fillRect(keeper.x + kw + armExtension - 1, ky + 1, 2, 3);
   } else {
     // Both arms raised
-    ctx.fillRect(keeper.x - 1, ky + 2, 3, 5);
-    ctx.fillRect(keeper.x + kw - 2, ky + 2, 3, 5);
+    ctx.fillRect(keeper.x - 1, ky + 1, 2, 4);
+    ctx.fillRect(keeper.x + kw - 1, ky + 1, 2, 4);
     // Gloves
     ctx.fillStyle = '#ffcd75';
-    ctx.fillRect(keeper.x - 2, ky + 1, 3, 3);
-    ctx.fillRect(keeper.x + kw - 1, ky + 1, 3, 3);
-    ctx.fillStyle = '#38b764';
+    ctx.fillRect(keeper.x - 1, ky, 2, 2);
+    ctx.fillRect(keeper.x + kw - 1, ky, 2, 2);
   }
+
+  ctx.fillStyle = '#38b764';
 
   // Shorts
   ctx.fillStyle = '#1a1c2c';
-  ctx.fillRect(keeper.x + 2, ky + 10, kw - 4, 5);
+  ctx.fillRect(keeper.x + 1, ky + 8, kw - 2, 4);
 
-  // Legs
+  // Skinny legs
   ctx.fillStyle = '#f4c4a0';
-  ctx.fillRect(keeper.x + 3, ky + 15, 2, 6);
-  ctx.fillRect(keeper.x + kw - 5, ky + 15, 2, 6);
+  ctx.fillRect(keeper.x + 1, ky + 12, 1, 6);
+  ctx.fillRect(keeper.x + kw - 2, ky + 12, 1, 6);
 
   // Shoes
   ctx.fillStyle = '#1a1c2c';
-  ctx.fillRect(keeper.x + 2, ky + 21, 3, 2);
-  ctx.fillRect(keeper.x + kw - 5, ky + 21, 3, 2);
+  ctx.fillRect(keeper.x + 1, ky + 18, 2, 2);
+  ctx.fillRect(keeper.x + kw - 3, ky + 18, 2, 2);
 
   ctx.restore();
 }
