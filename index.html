@@ -14,6 +14,20 @@
         <h1 class="title">World Cup 2026</h1>
         <h2 class="subtitle">Pixel Penalty</h2>
 
+        <div class="player-name-container">
+          <label for="player-name" class="control-label">Player Name</label>
+          <input type="text" id="player-name" class="player-name-input" placeholder="Enter your name" maxlength="20">
+        </div>
+
+        <div class="difficulty-container">
+          <label class="control-label">Difficulty</label>
+          <div class="difficulty-buttons" id="difficulty-buttons">
+            <button class="difficulty-btn" data-difficulty="easy">Easy</button>
+            <button class="difficulty-btn active" data-difficulty="medium">Medium</button>
+            <button class="difficulty-btn" data-difficulty="hard">Hard</button>
+          </div>
+        </div>
+
         <div class="team-grid" id="team-grid" role="radiogroup" aria-label="Select your team">
           <!-- Teams injected by JS -->
         </div>
@@ -30,7 +44,10 @@
         <header class="game-header">
           <div class="team-display">
             <span class="pixel-flag" id="game-flag"></span>
-            <span id="game-team-name">Team</span>
+            <div class="team-info">
+              <span id="game-team-name">Team</span>
+              <span class="player-name-display" id="player-name-display"></span>
+            </div>
           </div>
           <div class="stats">
             <span class="stat">
@@ -40,6 +57,10 @@
             <span class="stat">
               <span class="stat-label">Goals</span>
               <span class="stat-value" id="goals-scored">0</span>
+            </span>
+            <span class="stat">
+              <span class="stat-label">Streak</span>
+              <span class="stat-value" id="current-streak">0</span>
             </span>
           </div>
         </header>
@@ -67,12 +88,22 @@
             </div>
           </div>
 
+          <div class="curve-control">
+            <label for="curve-slider" class="control-label">Curve</label>
+            <input type="range" id="curve-slider" min="-100" max="100" value="0" class="slider slider-curve">
+            <div class="curve-indicator">
+              <span class="curve-left">Left</span>
+              <span class="curve-center"><span id="curve-value">0</span></span>
+              <span class="curve-right">Right</span>
+            </div>
+          </div>
+
           <button id="btn-shoot" class="btn btn-primary btn-shoot">Shoot!</button>
           <button id="btn-reset" class="btn-link">Reset Shot</button>
         </div>
 
         <div class="keyboard-hint" aria-hidden="true">
-          <kbd>&larr;</kbd><kbd>&rarr;</kbd> Aim &nbsp; <kbd>&uarr;</kbd><kbd>&darr;</kbd> Power &nbsp; <kbd>Space</kbd> Shoot
+          <kbd>&larr;</kbd><kbd>&rarr;</kbd> Aim &nbsp; <kbd>&uarr;</kbd><kbd>&darr;</kbd> Power &nbsp; <kbd>A</kbd><kbd>D</kbd> Curve &nbsp; <kbd>Space</kbd> Shoot
         </div>
       </div>
     </section>
@@ -111,6 +142,8 @@
         </div>
 
         <div class="results-message" id="results-message"></div>
+
+        <div class="career-stats" id="career-stats"></div>
 
         <button id="btn-play-again" class="btn btn-primary">Play Again</button>
       </div>

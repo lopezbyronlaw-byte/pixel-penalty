@@ -28,6 +28,7 @@ const TEAMS = [
   { id: 'can', name: 'Canada', colors: ['#e43b44', '#f4f4f4', '#e43b44'] },
   { id: 'bra', name: 'Brazil', colors: ['#38b764', '#ffcd75', '#38b764'] },
   { id: 'arg', name: 'Argentina', colors: ['#41a6f6', '#f4f4f4', '#41a6f6'] },
+  { id: 'ecu', name: 'Ecuador', colors: ['#ffcd75', '#41a6f6', '#e43b44'] },
   { id: 'ger', name: 'Germany', colors: ['#1a1c2c', '#e43b44', '#ffcd75'] },
   { id: 'fra', name: 'France', colors: ['#41a6f6', '#f4f4f4', '#e43b44'] },
   { id: 'esp', name: 'Spain', colors: ['#e43b44', '#ffcd75', '#e43b44'] },
@@ -55,6 +56,31 @@ const GAME_CONFIG = {
   minVelocity: 0.1
 };
 
+// Difficulty settings
+const DIFFICULTY_LEVELS = {
+  easy: {
+    name: 'Easy',
+    keeperSpeed: 0.5,
+    keeperReactionTime: 800,
+    keeperDiveChance: 0.3,
+    keeperReachMultiplier: 0.8
+  },
+  medium: {
+    name: 'Medium',
+    keeperSpeed: 0.8,
+    keeperReactionTime: 500,
+    keeperDiveChance: 0.5,
+    keeperReachMultiplier: 1.0
+  },
+  hard: {
+    name: 'Hard',
+    keeperSpeed: 1.2,
+    keeperReactionTime: 300,
+    keeperDiveChance: 0.7,
+    keeperReachMultiplier: 1.3
+  }
+};
+
 // ===========================================
 // STATE
 // ===========================================
@@ -62,10 +88,13 @@ const GAME_CONFIG = {
 const state = {
   screen: 'select', // select | game | results
   selectedTeam: null,
+  difficulty: 'medium',
   shotsRemaining: GAME_CONFIG.totalShots,
   goals: 0,
   saves: 0,
   misses: 0,
+  streak: 0,
+  maxStreak: 0,
 
   // Game state
   ball: {
@@ -73,17 +102,38 @@ const state = {
     y: GAME_CONFIG.ballStartY,
     vx: 0,
     vy: 0,
+    spin: 0, // -1 to 1 (left to right curve)
     isMoving: false
   },
   keeper: {
     x: GAME_CONFIG.canvasWidth / 2 - GAME_CONFIG.keeperWidth / 2,
     direction: 1,
-    speed: 0.8
+    speed: 0.8,
+    state: 'idle', // 'idle' | 'diving-left' | 'diving-right' | 'diving'
+    diveProgress: 0,
+    targetX: 0,
+    reactionTimer: 0
   },
   aim: 0,       // -45 to 45 degrees
   power: 70,    // 30 to 100
+  curve: 0,     // -100 to 100 (left to right)
   shotResult: null,  // 'goal' | 'save' | 'miss' | null
-  showingResult: false
+  showingResult: false,
+
+  // Visual effects
+  particles: [],
+  crowdCheer: 0,
+
+  // Statistics
+  stats: {
+    totalShots: 0,
+    totalGoals: 0,
+    totalSaves: 0,
+    totalMisses: 0,
+    bestStreak: 0,
+    gamesPlayed: 0,
+    perfectGames: 0
+  }
 };
 
 // ===========================================
@@ -157,6 +207,27 @@ function playSound(type) {
       osc.start(now);
       osc.stop(now + 0.05);
       break;
+
+    case 'dive':
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(200, now);
+      osc.frequency.exponentialRampToValueAtTime(150, now + 0.1);
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+      osc.start(now);
+      osc.stop(now + 0.1);
+      break;
+
+    case 'crowd':
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(100, now);
+      osc.frequency.setValueAtTime(150, now + 0.2);
+      osc.frequency.setValueAtTime(200, now + 0.4);
+      gain.gain.setValueAtTime(0.1, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+      osc.start(now);
+      osc.stop(now + 0.6);
+      break;
   }
 }
 
@@ -170,16 +241,22 @@ const elements = {
     game: document.getElementById('screen-game'),
     results: document.getElementById('screen-results')
   },
+  playerName: document.getElementById('player-name'),
+  difficultyButtons: document.getElementById('difficulty-buttons'),
   teamGrid: document.getElementById('team-grid'),
   btnStart: document.getElementById('btn-start'),
   gameFlag: document.getElementById('game-flag'),
   gameTeamName: document.getElementById('game-team-name'),
+  playerNameDisplay: document.getElementById('player-name-display'),
   shotsRemaining: document.getElementById('shots-remaining'),
   goalsScored: document.getElementById('goals-scored'),
+  currentStreak: document.getElementById('current-streak'),
   canvas: document.getElementById('game-canvas'),
   aimSlider: document.getElementById('aim-slider'),
   powerSlider: document.getElementById('power-slider'),
   powerValue: document.getElementById('power-value'),
+  curveSlider: document.getElementById('curve-slider'),
+  curveValue: document.getElementById('curve-value'),
   btnShoot: document.getElementById('btn-shoot'),
   btnReset: document.getElementById('btn-reset'),
   resultsFlag: document.getElementById('results-flag'),
@@ -294,8 +371,12 @@ function startGame() {
   state.goals = 0;
   state.saves = 0;
   state.misses = 0;
+  state.streak = 0;
+  state.maxStreak = 0;
   state.shotResult = null;
   state.showingResult = false;
+  state.particles = [];
+  state.crowdCheer = 0;
 
   resetBall();
   resetKeeper();
@@ -303,14 +384,27 @@ function startGame() {
   // Update game UI
   setFlagImage(elements.gameFlag, state.selectedTeam);
   elements.gameTeamName.textContent = state.selectedTeam.name;
+
+  // Show player name if entered
+  const playerName = elements.playerName.value.trim();
+  if (playerName) {
+    elements.playerNameDisplay.textContent = playerName;
+    elements.playerNameDisplay.style.display = 'block';
+  } else {
+    elements.playerNameDisplay.style.display = 'none';
+  }
+
   updateGameUI();
 
   // Reset controls
   elements.aimSlider.value = 0;
   elements.powerSlider.value = 70;
+  elements.curveSlider.value = 0;
   state.aim = 0;
   state.power = 70;
+  state.curve = 0;
   updatePowerDisplay();
+  updateCurveDisplay();
 
   switchScreen('game');
   elements.canvas.focus();
@@ -325,6 +419,7 @@ function resetBall() {
     y: GAME_CONFIG.ballStartY,
     vx: 0,
     vy: 0,
+    spin: 0,
     isMoving: false
   };
 }
@@ -333,18 +428,27 @@ function resetKeeper() {
   state.keeper = {
     x: GAME_CONFIG.canvasWidth / 2 - GAME_CONFIG.keeperWidth / 2,
     direction: Math.random() > 0.5 ? 1 : -1,
-    speed: 0.6 + Math.random() * 0.4
+    speed: 0.8,
+    state: 'idle',
+    diveProgress: 0,
+    targetX: 0,
+    reactionTimer: 0
   };
 }
 
 function updateGameUI() {
   elements.shotsRemaining.textContent = state.shotsRemaining;
   elements.goalsScored.textContent = state.goals;
+  elements.currentStreak.textContent = state.streak;
   elements.btnShoot.disabled = state.ball.isMoving || state.showingResult;
 }
 
 function updatePowerDisplay() {
   elements.powerValue.textContent = `${state.power}%`;
+}
+
+function updateCurveDisplay() {
+  elements.curveValue.textContent = state.curve;
 }
 
 // ===========================================
@@ -363,6 +467,7 @@ function shoot() {
 
   state.ball.vx = Math.sin(angleRad) * speed;
   state.ball.vy = -speed; // Negative because Y increases downward
+  state.ball.spin = (state.curve / 100) * 0.5; // Convert curve to spin
   state.ball.isMoving = true;
 
   updateGameUI();
@@ -376,6 +481,9 @@ function shoot() {
 function resetShot() {
   if (state.showingResult) return;
   resetBall();
+  state.curve = 0;
+  elements.curveSlider.value = 0;
+  updateCurveDisplay();
   updateGameUI();
 }
 
@@ -412,10 +520,55 @@ function update(deltaTime) {
 
 function updateKeeper() {
   const keeper = state.keeper;
+  const difficulty = DIFFICULTY_LEVELS[state.difficulty];
   const goalLeft = (GAME_CONFIG.canvasWidth - GAME_CONFIG.goalWidth) / 2 + GAME_CONFIG.postWidth;
   const goalRight = goalLeft + GAME_CONFIG.goalWidth - GAME_CONFIG.postWidth * 2 - GAME_CONFIG.keeperWidth;
 
-  keeper.x += keeper.direction * keeper.speed;
+  // Handle diving state
+  if (keeper.state !== 'idle') {
+    keeper.diveProgress += 0.08;
+
+    if (keeper.diveProgress >= 1) {
+      keeper.diveProgress = 1;
+    }
+
+    // Move towards target during dive
+    const targetDelta = keeper.targetX - keeper.x;
+    keeper.x += targetDelta * 0.15 * difficulty.keeperReachMultiplier;
+
+    return;
+  }
+
+  // React to ball if it's moving
+  if (state.ball.isMoving && keeper.reactionTimer <= 0) {
+    const ball = state.ball;
+    const ballSpeed = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+
+    // Predict where ball will be
+    const timeToGoal = Math.abs((GAME_CONFIG.keeperY - ball.y) / ball.vy);
+    const predictedX = ball.x + (ball.vx + ball.spin * 0.5) * timeToGoal;
+
+    const keeperCenter = keeper.x + GAME_CONFIG.keeperWidth / 2;
+    const distanceFromKeeper = Math.abs(predictedX - keeperCenter);
+
+    // Decide whether to dive
+    const shouldDive = distanceFromKeeper > 15 &&
+                      Math.random() < difficulty.keeperDiveChance &&
+                      ball.y < GAME_CONFIG.canvasHeight / 2;
+
+    if (shouldDive) {
+      keeper.state = predictedX < keeperCenter ? 'diving-left' : 'diving-right';
+      keeper.targetX = predictedX - GAME_CONFIG.keeperWidth / 2;
+      keeper.diveProgress = 0;
+      keeper.reactionTimer = difficulty.keeperReactionTime;
+      playSound('dive');
+    }
+  } else if (keeper.reactionTimer > 0) {
+    keeper.reactionTimer -= 16; // Approximate frame time
+  }
+
+  // Normal movement when idle
+  keeper.x += keeper.direction * difficulty.keeperSpeed;
 
   // Bounce off goal posts
   if (keeper.x <= goalLeft) {
@@ -433,6 +586,11 @@ function updateBall() {
   // Apply velocity
   ball.x += ball.vx;
   ball.y += ball.vy;
+
+  // Apply curve (spin effect)
+  if (ball.spin !== 0 && ball.isMoving) {
+    ball.vx += ball.spin * 0.08;
+  }
 
   // Apply friction
   ball.vx *= GAME_CONFIG.friction;
@@ -523,20 +681,37 @@ function handleShotResult(result) {
   switch (result) {
     case 'goal':
       state.goals++;
+      state.streak++;
+      state.maxStreak = Math.max(state.maxStreak, state.streak);
       playSound('goal');
+      playSound('crowd');
+      state.crowdCheer = 3;
+      createParticles(state.ball.x, state.ball.y, '#38b764', 20);
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
       break;
     case 'save':
       state.saves++;
+      state.streak = 0;
       playSound('save');
+      createParticles(state.keeper.x + GAME_CONFIG.keeperWidth / 2, GAME_CONFIG.keeperY, '#e43b44', 10);
       break;
     case 'miss':
       state.misses++;
+      state.streak = 0;
       playSound('miss');
       break;
   }
 
   updateGameUI();
+
+  // Decay crowd cheer
+  const cheerInterval = setInterval(() => {
+    state.crowdCheer *= 0.9;
+    if (state.crowdCheer < 0.1) {
+      state.crowdCheer = 0;
+      clearInterval(cheerInterval);
+    }
+  }, 100);
 
   // Show result briefly, then continue or end game
   setTimeout(() => {
@@ -562,10 +737,12 @@ function render() {
   ctx.fillStyle = COLORS.field;
   ctx.fillRect(0, 0, GAME_CONFIG.canvasWidth, GAME_CONFIG.canvasHeight);
 
+  drawCrowd();
   drawField();
   drawGoal();
   drawKeeper();
   drawBall();
+  drawParticles();
   drawAimIndicator();
   drawShotResult();
 }
@@ -636,6 +813,24 @@ function drawGoal() {
 function drawKeeper() {
   const keeper = state.keeper;
 
+  ctx.save();
+
+  // Apply diving animation
+  if (keeper.state !== 'idle') {
+    const diveAmount = keeper.diveProgress * 8;
+    const tilt = keeper.diveProgress * 0.5;
+
+    if (keeper.state === 'diving-left') {
+      ctx.translate(keeper.x + GAME_CONFIG.keeperWidth / 2, GAME_CONFIG.keeperY + GAME_CONFIG.keeperHeight / 2);
+      ctx.rotate(-tilt);
+      ctx.translate(-(keeper.x + GAME_CONFIG.keeperWidth / 2), -(GAME_CONFIG.keeperY + GAME_CONFIG.keeperHeight / 2));
+    } else if (keeper.state === 'diving-right') {
+      ctx.translate(keeper.x + GAME_CONFIG.keeperWidth / 2, GAME_CONFIG.keeperY + GAME_CONFIG.keeperHeight / 2);
+      ctx.rotate(tilt);
+      ctx.translate(-(keeper.x + GAME_CONFIG.keeperWidth / 2), -(GAME_CONFIG.keeperY + GAME_CONFIG.keeperHeight / 2));
+    }
+  }
+
   // Body
   ctx.fillStyle = COLORS.keeper;
   ctx.fillRect(keeper.x, GAME_CONFIG.keeperY, GAME_CONFIG.keeperWidth, GAME_CONFIG.keeperHeight);
@@ -644,9 +839,23 @@ function drawKeeper() {
   ctx.fillStyle = COLORS.keeperDetail;
   // Head
   ctx.fillRect(keeper.x + 9, GAME_CONFIG.keeperY - 6, 6, 6);
-  // Arms
-  ctx.fillRect(keeper.x - 2, GAME_CONFIG.keeperY + 4, 4, 4);
-  ctx.fillRect(keeper.x + GAME_CONFIG.keeperWidth - 2, GAME_CONFIG.keeperY + 4, 4, 4);
+
+  // Arms - extended during dive
+  if (keeper.state !== 'idle') {
+    const armExtension = keeper.diveProgress * 6;
+    if (keeper.state === 'diving-left') {
+      ctx.fillRect(keeper.x - 2 - armExtension, GAME_CONFIG.keeperY + 4, 4 + armExtension, 4);
+      ctx.fillRect(keeper.x + GAME_CONFIG.keeperWidth - 2, GAME_CONFIG.keeperY + 4, 4, 4);
+    } else {
+      ctx.fillRect(keeper.x - 2, GAME_CONFIG.keeperY + 4, 4, 4);
+      ctx.fillRect(keeper.x + GAME_CONFIG.keeperWidth - 2, GAME_CONFIG.keeperY + 4, 4 + armExtension, 4);
+    }
+  } else {
+    ctx.fillRect(keeper.x - 2, GAME_CONFIG.keeperY + 4, 4, 4);
+    ctx.fillRect(keeper.x + GAME_CONFIG.keeperWidth - 2, GAME_CONFIG.keeperY + 4, 4, 4);
+  }
+
+  ctx.restore();
 }
 
 function drawBall() {
@@ -669,6 +878,64 @@ function drawBall() {
   // Ball pattern (simple)
   ctx.fillStyle = COLORS.ballShadow;
   ctx.fillRect(ball.x - 1, ball.y - 1, 2, 2);
+
+  // Spin indicator when moving
+  if (ball.isMoving && Math.abs(ball.spin) > 0.1) {
+    ctx.strokeStyle = ball.spin > 0 ? '#ffcd75' : '#41a6f6';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    const spinArc = ball.spin * Math.PI;
+    ctx.arc(ball.x, ball.y, GAME_CONFIG.ballRadius + 2, -Math.PI / 2 - spinArc, -Math.PI / 2 + spinArc);
+    ctx.stroke();
+  }
+}
+
+function drawCrowd() {
+  // Simplified crowd in the background
+  const crowdY = 5;
+  const crowdHeight = 10;
+
+  // Crowd gets more animated on goals
+  const cheer = state.crowdCheer;
+
+  for (let x = 0; x < GAME_CONFIG.canvasWidth; x += 4) {
+    const variation = Math.sin(x * 0.5 + Date.now() * 0.003) * cheer;
+    const h = crowdHeight + variation;
+    ctx.fillStyle = x % 8 === 0 ? '#262b44' : '#1a1c2c';
+    ctx.fillRect(x, crowdY, 3, h);
+  }
+}
+
+function drawParticles() {
+  state.particles.forEach((particle, index) => {
+    ctx.fillStyle = particle.color;
+    ctx.globalAlpha = particle.life;
+    ctx.fillRect(particle.x - 1, particle.y - 1, 2, 2);
+    ctx.globalAlpha = 1;
+
+    // Update particle
+    particle.x += particle.vx;
+    particle.y += particle.vy;
+    particle.vy += 0.1; // Gravity
+    particle.life -= 0.02;
+
+    if (particle.life <= 0) {
+      state.particles.splice(index, 1);
+    }
+  });
+}
+
+function createParticles(x, y, color, count = 10) {
+  for (let i = 0; i < count; i++) {
+    state.particles.push({
+      x: x,
+      y: y,
+      vx: (Math.random() - 0.5) * 3,
+      vy: (Math.random() - 0.5) * 3 - 1,
+      color: color,
+      life: 1
+    });
+  }
 }
 
 function drawAimIndicator() {
@@ -677,18 +944,23 @@ function drawAimIndicator() {
 
   const ball = state.ball;
   const angleRad = (state.aim * Math.PI) / 180;
+  const curveEffect = (state.curve / 100) * 20;
   const indicatorLength = 30 + (state.power / 100) * 30;
 
-  const endX = ball.x + Math.sin(angleRad) * indicatorLength;
+  const endX = ball.x + Math.sin(angleRad) * indicatorLength + curveEffect;
   const endY = ball.y - indicatorLength;
 
-  // Dashed line
+  // Curved line using quadratic curve
   ctx.strokeStyle = COLORS.line;
   ctx.lineWidth = 1;
   ctx.setLineDash([4, 4]);
   ctx.beginPath();
   ctx.moveTo(ball.x, ball.y - GAME_CONFIG.ballRadius);
-  ctx.lineTo(endX, endY);
+
+  const controlX = ball.x + Math.sin(angleRad) * indicatorLength / 2;
+  const controlY = ball.y - indicatorLength / 2;
+  ctx.quadraticCurveTo(controlX, controlY, endX, endY);
+
   ctx.stroke();
   ctx.setLineDash([]);
 
@@ -699,6 +971,14 @@ function drawAimIndicator() {
   ctx.lineTo(endX - 3, endY + 2);
   ctx.lineTo(endX + 3, endY + 2);
   ctx.fill();
+
+  // Curve indicator
+  if (Math.abs(state.curve) > 5) {
+    ctx.fillStyle = state.curve > 0 ? '#ffcd75' : '#41a6f6';
+    ctx.font = '6px "Courier New", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(state.curve > 0 ? 'R' : 'L', ball.x + curveEffect / 2, ball.y - 5);
+  }
 }
 
 function drawShotResult() {
@@ -739,6 +1019,9 @@ function drawShotResult() {
 // ===========================================
 
 function showResults() {
+  // Update statistics
+  updateStatsAfterGame();
+
   setFlagImage(elements.resultsFlag, state.selectedTeam, true);
   elements.resultsTeamName.textContent = state.selectedTeam.name;
   elements.finalGoals.textContent = state.goals;
@@ -750,6 +1033,9 @@ function showResults() {
   let message = '';
   if (state.goals === 5) {
     message = 'Perfect! World Cup winner!';
+    if (state.stats.perfectGames > 1) {
+      message += ` (${state.stats.perfectGames} perfect games!)`;
+    }
   } else if (state.goals >= 4) {
     message = 'Excellent shooting!';
   } else if (state.goals >= 3) {
@@ -759,7 +1045,18 @@ function showResults() {
   } else {
     message = 'Better luck next time!';
   }
+
+  if (state.maxStreak > 1) {
+    message += ` Best streak: ${state.maxStreak}`;
+  }
+
   elements.resultsMessage.textContent = message;
+
+  // Update stats display
+  const statsEl = document.getElementById('career-stats');
+  if (statsEl) {
+    statsEl.textContent = `Career: ${state.stats.totalGoals}/${state.stats.totalShots} goals (${getAccuracy()}% accuracy)`;
+  }
 
   // Celebrate if scored
   if (state.goals > 0) {
@@ -792,6 +1089,16 @@ function playAgain() {
 // ===========================================
 
 function initEventListeners() {
+  // Difficulty selection
+  elements.difficultyButtons.querySelectorAll('.difficulty-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      elements.difficultyButtons.querySelectorAll('.difficulty-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      state.difficulty = btn.dataset.difficulty;
+      playSound('select');
+    });
+  });
+
   // Start button
   elements.btnStart.addEventListener('click', startGame);
 
@@ -804,6 +1111,12 @@ function initEventListeners() {
   elements.powerSlider.addEventListener('input', (e) => {
     state.power = parseInt(e.target.value);
     updatePowerDisplay();
+  });
+
+  // Curve slider
+  elements.curveSlider.addEventListener('input', (e) => {
+    state.curve = parseInt(e.target.value);
+    updateCurveDisplay();
   });
 
   // Shoot button
@@ -853,6 +1166,22 @@ function handleKeyDown(e) {
       state.power = Math.max(30, state.power - 5);
       elements.powerSlider.value = state.power;
       updatePowerDisplay();
+      break;
+
+    case 'a':
+    case 'A':
+      e.preventDefault();
+      state.curve = Math.max(-100, state.curve - 10);
+      elements.curveSlider.value = state.curve;
+      updateCurveDisplay();
+      break;
+
+    case 'd':
+    case 'D':
+      e.preventDefault();
+      state.curve = Math.min(100, state.curve + 10);
+      elements.curveSlider.value = state.curve;
+      updateCurveDisplay();
       break;
 
     case ' ':
@@ -915,6 +1244,47 @@ function setupCanvas() {
 }
 
 // ===========================================
+// STATISTICS & STORAGE
+// ===========================================
+
+function loadStats() {
+  try {
+    const saved = localStorage.getItem('pixelPenaltyStats');
+    if (saved) {
+      state.stats = { ...state.stats, ...JSON.parse(saved) };
+    }
+  } catch (e) {
+    console.error('Failed to load stats:', e);
+  }
+}
+
+function saveStats() {
+  try {
+    localStorage.setItem('pixelPenaltyStats', JSON.stringify(state.stats));
+  } catch (e) {
+    console.error('Failed to save stats:', e);
+  }
+}
+
+function updateStatsAfterGame() {
+  state.stats.totalShots += GAME_CONFIG.totalShots;
+  state.stats.totalGoals += state.goals;
+  state.stats.totalSaves += state.saves;
+  state.stats.totalMisses += state.misses;
+  state.stats.bestStreak = Math.max(state.stats.bestStreak, state.maxStreak);
+  state.stats.gamesPlayed++;
+  if (state.goals === GAME_CONFIG.totalShots) {
+    state.stats.perfectGames++;
+  }
+  saveStats();
+}
+
+function getAccuracy() {
+  if (state.stats.totalShots === 0) return 0;
+  return Math.round((state.stats.totalGoals / state.stats.totalShots) * 100);
+}
+
+// ===========================================
 // INITIALIZATION
 // ===========================================
 
@@ -922,6 +1292,7 @@ function init() {
   setupCanvas();
   initTeamSelection();
   initEventListeners();
+  loadStats();
 
   // Initial render
   render();
