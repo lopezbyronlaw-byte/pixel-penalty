@@ -42,42 +42,42 @@ const GAME_CONFIG = {
   totalShots: 5,
   canvasWidth: 160,    // Low-res for pixel art, scaled up
   canvasHeight: 200,
-  ballRadius: 4,
+  ballRadius: 5,
   ballStartX: 80,
   ballStartY: 170,
-  goalY: 20,
-  goalWidth: 60,
-  goalHeight: 20,
-  postWidth: 4,
-  keeperWidth: 24,
-  keeperHeight: 16,
-  keeperY: 26,
+  goalY: 12,
+  goalWidth: 100,      // Much bigger goal (was 60)
+  goalHeight: 35,      // Taller goal (was 20)
+  postWidth: 3,
+  keeperWidth: 10,     // Smaller keeper for bigger goal
+  keeperHeight: 22,    // Taller, more human proportions
+  keeperY: 28,
   friction: 0.985,
   minVelocity: 0.1
 };
 
-// Difficulty settings
+// Difficulty settings (adjusted for bigger goal)
 const DIFFICULTY_LEVELS = {
   easy: {
     name: 'Easy',
-    keeperSpeed: 0.5,
-    keeperReactionTime: 800,
-    keeperDiveChance: 0.3,
-    keeperReachMultiplier: 0.8
+    keeperSpeed: 0.6,
+    keeperReactionTime: 900,
+    keeperDiveChance: 0.25,
+    keeperReachMultiplier: 0.7
   },
   medium: {
     name: 'Medium',
-    keeperSpeed: 0.8,
-    keeperReactionTime: 500,
-    keeperDiveChance: 0.5,
+    keeperSpeed: 1.0,
+    keeperReactionTime: 600,
+    keeperDiveChance: 0.45,
     keeperReachMultiplier: 1.0
   },
   hard: {
     name: 'Hard',
-    keeperSpeed: 1.2,
-    keeperReactionTime: 300,
-    keeperDiveChance: 0.7,
-    keeperReachMultiplier: 1.3
+    keeperSpeed: 1.5,
+    keeperReactionTime: 350,
+    keeperDiveChance: 0.65,
+    keeperReachMultiplier: 1.4
   }
 };
 
@@ -748,16 +748,18 @@ function render() {
 }
 
 function drawField() {
-  // Field stripes
-  const stripeWidth = 20;
-  ctx.fillStyle = COLORS.fieldLight;
+  // Realistic grass pattern with varied stripes
+  const stripeWidth = 15;
   for (let x = 0; x < GAME_CONFIG.canvasWidth; x += stripeWidth * 2) {
+    ctx.fillStyle = COLORS.fieldLight;
     ctx.fillRect(x, 0, stripeWidth, GAME_CONFIG.canvasHeight);
+    ctx.fillStyle = COLORS.field;
+    ctx.fillRect(x + stripeWidth, 0, stripeWidth, GAME_CONFIG.canvasHeight);
   }
 
-  // Penalty box
-  const boxWidth = 100;
-  const boxHeight = 60;
+  // 18-yard box (larger penalty area)
+  const boxWidth = 120;
+  const boxHeight = 70;
   const boxX = (GAME_CONFIG.canvasWidth - boxWidth) / 2;
   const boxY = GAME_CONFIG.goalY + GAME_CONFIG.goalHeight;
 
@@ -765,9 +767,24 @@ function drawField() {
   ctx.lineWidth = 2;
   ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
 
-  // Penalty spot
+  // 6-yard box (goal area)
+  const smallBoxWidth = 80;
+  const smallBoxHeight = 35;
+  const smallBoxX = (GAME_CONFIG.canvasWidth - smallBoxWidth) / 2;
+  ctx.strokeRect(smallBoxX, boxY, smallBoxWidth, smallBoxHeight);
+
+  // Penalty spot with arc
   ctx.fillStyle = COLORS.line;
-  ctx.fillRect(GAME_CONFIG.ballStartX - 2, GAME_CONFIG.ballStartY - 2, 4, 4);
+  ctx.beginPath();
+  ctx.arc(GAME_CONFIG.ballStartX, GAME_CONFIG.ballStartY, 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Penalty arc
+  ctx.strokeStyle = COLORS.line;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(GAME_CONFIG.ballStartX, GAME_CONFIG.ballStartY, 20, -Math.PI / 3, -Math.PI * 2 / 3, true);
+  ctx.stroke();
 
   // Center line hint
   ctx.fillStyle = COLORS.line;
@@ -778,132 +795,236 @@ function drawGoal() {
   const goalLeft = (GAME_CONFIG.canvasWidth - GAME_CONFIG.goalWidth) / 2;
   const goalTop = GAME_CONFIG.goalY;
 
-  // Goal net (back)
-  ctx.fillStyle = COLORS.goalNet;
-  ctx.fillRect(goalLeft, goalTop, GAME_CONFIG.goalWidth, GAME_CONFIG.goalHeight);
+  // 3D goal depth effect (back of goal)
+  ctx.fillStyle = '#262b44';
+  ctx.fillRect(goalLeft + 2, goalTop + 2, GAME_CONFIG.goalWidth - 4, GAME_CONFIG.goalHeight - 2);
 
-  // Net pattern
-  ctx.strokeStyle = COLORS.bg;
+  // Realistic net with finer mesh
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+  ctx.fillRect(goalLeft + 3, goalTop + 3, GAME_CONFIG.goalWidth - 6, GAME_CONFIG.goalHeight - 3);
+
+  // Net pattern - finer grid
+  ctx.strokeStyle = 'rgba(139, 155, 180, 0.6)';
   ctx.lineWidth = 1;
-  for (let x = goalLeft; x < goalLeft + GAME_CONFIG.goalWidth; x += 6) {
+  for (let x = goalLeft + 3; x < goalLeft + GAME_CONFIG.goalWidth; x += 5) {
     ctx.beginPath();
-    ctx.moveTo(x, goalTop);
+    ctx.moveTo(x, goalTop + 3);
     ctx.lineTo(x, goalTop + GAME_CONFIG.goalHeight);
     ctx.stroke();
   }
-  for (let y = goalTop; y < goalTop + GAME_CONFIG.goalHeight; y += 6) {
+  for (let y = goalTop + 3; y < goalTop + GAME_CONFIG.goalHeight; y += 5) {
     ctx.beginPath();
-    ctx.moveTo(goalLeft, y);
-    ctx.lineTo(goalLeft + GAME_CONFIG.goalWidth, y);
+    ctx.moveTo(goalLeft + 3, y);
+    ctx.lineTo(goalLeft + GAME_CONFIG.goalWidth - 3, y);
     ctx.stroke();
   }
 
-  // Goal frame
+  // Goal frame (posts and crossbar) with 3D effect
   ctx.fillStyle = COLORS.post;
 
-  // Left post
+  // Left post with highlight
   ctx.fillRect(goalLeft, goalTop, GAME_CONFIG.postWidth, GAME_CONFIG.goalHeight);
-  // Right post
+  ctx.fillStyle = '#ffe8a0';
+  ctx.fillRect(goalLeft, goalTop, 1, GAME_CONFIG.goalHeight);
+
+  // Right post with highlight
+  ctx.fillStyle = COLORS.post;
   ctx.fillRect(goalLeft + GAME_CONFIG.goalWidth - GAME_CONFIG.postWidth, goalTop,
                GAME_CONFIG.postWidth, GAME_CONFIG.goalHeight);
-  // Crossbar
+  ctx.fillStyle = '#ffe8a0';
+  ctx.fillRect(goalLeft + GAME_CONFIG.goalWidth - GAME_CONFIG.postWidth, goalTop,
+               1, GAME_CONFIG.goalHeight);
+
+  // Crossbar with highlight
+  ctx.fillStyle = COLORS.post;
   ctx.fillRect(goalLeft, goalTop, GAME_CONFIG.goalWidth, 3);
+  ctx.fillStyle = '#ffe8a0';
+  ctx.fillRect(goalLeft, goalTop, GAME_CONFIG.goalWidth, 1);
 }
 
 function drawKeeper() {
   const keeper = state.keeper;
+  const kw = GAME_CONFIG.keeperWidth;
+  const kh = GAME_CONFIG.keeperHeight;
+  const ky = GAME_CONFIG.keeperY;
 
   ctx.save();
 
   // Apply diving animation
   if (keeper.state !== 'idle') {
-    const diveAmount = keeper.diveProgress * 8;
-    const tilt = keeper.diveProgress * 0.5;
+    const tilt = keeper.diveProgress * 0.6;
 
     if (keeper.state === 'diving-left') {
-      ctx.translate(keeper.x + GAME_CONFIG.keeperWidth / 2, GAME_CONFIG.keeperY + GAME_CONFIG.keeperHeight / 2);
+      ctx.translate(keeper.x + kw / 2, ky + kh / 2);
       ctx.rotate(-tilt);
-      ctx.translate(-(keeper.x + GAME_CONFIG.keeperWidth / 2), -(GAME_CONFIG.keeperY + GAME_CONFIG.keeperHeight / 2));
+      ctx.translate(-(keeper.x + kw / 2), -(ky + kh / 2));
     } else if (keeper.state === 'diving-right') {
-      ctx.translate(keeper.x + GAME_CONFIG.keeperWidth / 2, GAME_CONFIG.keeperY + GAME_CONFIG.keeperHeight / 2);
+      ctx.translate(keeper.x + kw / 2, ky + kh / 2);
       ctx.rotate(tilt);
-      ctx.translate(-(keeper.x + GAME_CONFIG.keeperWidth / 2), -(GAME_CONFIG.keeperY + GAME_CONFIG.keeperHeight / 2));
+      ctx.translate(-(keeper.x + kw / 2), -(ky + kh / 2));
     }
   }
 
-  // Body
-  ctx.fillStyle = COLORS.keeper;
-  ctx.fillRect(keeper.x, GAME_CONFIG.keeperY, GAME_CONFIG.keeperWidth, GAME_CONFIG.keeperHeight);
+  // More realistic goalkeeper with better proportions
+  const centerX = keeper.x + kw / 2;
 
-  // Details (head, arms)
-  ctx.fillStyle = COLORS.keeperDetail;
-  // Head
-  ctx.fillRect(keeper.x + 9, GAME_CONFIG.keeperY - 6, 6, 6);
+  // Head (skin tone)
+  ctx.fillStyle = '#f4c4a0';
+  ctx.beginPath();
+  ctx.arc(centerX, ky - 2, 3, 0, Math.PI * 2);
+  ctx.fill();
 
-  // Arms - extended during dive
-  if (keeper.state !== 'idle') {
-    const armExtension = keeper.diveProgress * 6;
-    if (keeper.state === 'diving-left') {
-      ctx.fillRect(keeper.x - 2 - armExtension, GAME_CONFIG.keeperY + 4, 4 + armExtension, 4);
-      ctx.fillRect(keeper.x + GAME_CONFIG.keeperWidth - 2, GAME_CONFIG.keeperY + 4, 4, 4);
-    } else {
-      ctx.fillRect(keeper.x - 2, GAME_CONFIG.keeperY + 4, 4, 4);
-      ctx.fillRect(keeper.x + GAME_CONFIG.keeperWidth - 2, GAME_CONFIG.keeperY + 4, 4 + armExtension, 4);
-    }
+  // Jersey (goalkeeper color)
+  ctx.fillStyle = '#38b764'; // Green keeper jersey
+  // Torso
+  ctx.fillRect(keeper.x + 2, ky + 2, kw - 4, 8);
+
+  // Arms
+  const armExtension = keeper.state !== 'idle' ? keeper.diveProgress * 8 : 0;
+
+  if (keeper.state === 'diving-left') {
+    // Left arm extended
+    ctx.fillRect(keeper.x - 2 - armExtension, ky + 3, 4 + armExtension, 3);
+    // Right arm
+    ctx.fillRect(keeper.x + kw - 2, ky + 3, 3, 3);
+    // Gloves
+    ctx.fillStyle = '#ffcd75';
+    ctx.fillRect(keeper.x - 3 - armExtension, ky + 2, 3, 4);
+    ctx.fillStyle = '#38b764';
+  } else if (keeper.state === 'diving-right') {
+    // Left arm
+    ctx.fillRect(keeper.x - 1, ky + 3, 3, 3);
+    // Right arm extended
+    ctx.fillRect(keeper.x + kw - 2, ky + 3, 4 + armExtension, 3);
+    // Gloves
+    ctx.fillStyle = '#ffcd75';
+    ctx.fillRect(keeper.x + kw + armExtension, ky + 2, 3, 4);
+    ctx.fillStyle = '#38b764';
   } else {
-    ctx.fillRect(keeper.x - 2, GAME_CONFIG.keeperY + 4, 4, 4);
-    ctx.fillRect(keeper.x + GAME_CONFIG.keeperWidth - 2, GAME_CONFIG.keeperY + 4, 4, 4);
+    // Both arms raised
+    ctx.fillRect(keeper.x - 1, ky + 2, 3, 5);
+    ctx.fillRect(keeper.x + kw - 2, ky + 2, 3, 5);
+    // Gloves
+    ctx.fillStyle = '#ffcd75';
+    ctx.fillRect(keeper.x - 2, ky + 1, 3, 3);
+    ctx.fillRect(keeper.x + kw - 1, ky + 1, 3, 3);
+    ctx.fillStyle = '#38b764';
   }
+
+  // Shorts
+  ctx.fillStyle = '#1a1c2c';
+  ctx.fillRect(keeper.x + 2, ky + 10, kw - 4, 5);
+
+  // Legs
+  ctx.fillStyle = '#f4c4a0';
+  ctx.fillRect(keeper.x + 3, ky + 15, 2, 6);
+  ctx.fillRect(keeper.x + kw - 5, ky + 15, 2, 6);
+
+  // Shoes
+  ctx.fillStyle = '#1a1c2c';
+  ctx.fillRect(keeper.x + 2, ky + 21, 3, 2);
+  ctx.fillRect(keeper.x + kw - 5, ky + 21, 3, 2);
 
   ctx.restore();
 }
 
 function drawBall() {
   const ball = state.ball;
+  const r = GAME_CONFIG.ballRadius;
 
   // Shadow
   ctx.fillStyle = COLORS.ballShadow;
-  ctx.globalAlpha = 0.3;
+  ctx.globalAlpha = 0.4;
   ctx.beginPath();
-  ctx.arc(ball.x + 2, ball.y + 2, GAME_CONFIG.ballRadius, 0, Math.PI * 2);
+  ctx.ellipse(ball.x + 1, ball.y + 3, r + 1, r * 0.5, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.globalAlpha = 1;
 
-  // Ball
-  ctx.fillStyle = COLORS.ball;
+  // Ball base (white)
+  ctx.fillStyle = '#f4f4f4';
   ctx.beginPath();
-  ctx.arc(ball.x, ball.y, GAME_CONFIG.ballRadius, 0, Math.PI * 2);
+  ctx.arc(ball.x, ball.y, r, 0, Math.PI * 2);
   ctx.fill();
 
-  // Ball pattern (simple)
-  ctx.fillStyle = COLORS.ballShadow;
-  ctx.fillRect(ball.x - 1, ball.y - 1, 2, 2);
+  // Classic soccer ball pattern (pentagons)
+  ctx.fillStyle = '#1a1c2c';
+
+  // Center pentagon
+  ctx.beginPath();
+  ctx.moveTo(ball.x, ball.y - 2);
+  ctx.lineTo(ball.x + 2, ball.y - 1);
+  ctx.lineTo(ball.x + 1, ball.y + 1);
+  ctx.lineTo(ball.x - 1, ball.y + 1);
+  ctx.lineTo(ball.x - 2, ball.y - 1);
+  ctx.closePath();
+  ctx.fill();
+
+  // Side pentagons (partial)
+  ctx.beginPath();
+  ctx.moveTo(ball.x - 3, ball.y - 2);
+  ctx.lineTo(ball.x - 2, ball.y - 3);
+  ctx.lineTo(ball.x - 1, ball.y - 3);
+  ctx.lineTo(ball.x - 1, ball.y - 1);
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(ball.x + 3, ball.y - 2);
+  ctx.lineTo(ball.x + 2, ball.y - 3);
+  ctx.lineTo(ball.x + 1, ball.y - 3);
+  ctx.lineTo(ball.x + 1, ball.y - 1);
+  ctx.fill();
+
+  // Highlight for 3D effect
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+  ctx.beginPath();
+  ctx.arc(ball.x - 1, ball.y - 1, 2, 0, Math.PI * 2);
+  ctx.fill();
 
   // Spin indicator when moving
   if (ball.isMoving && Math.abs(ball.spin) > 0.1) {
     ctx.strokeStyle = ball.spin > 0 ? '#ffcd75' : '#41a6f6';
     ctx.lineWidth = 1;
+    ctx.globalAlpha = 0.6;
     ctx.beginPath();
     const spinArc = ball.spin * Math.PI;
-    ctx.arc(ball.x, ball.y, GAME_CONFIG.ballRadius + 2, -Math.PI / 2 - spinArc, -Math.PI / 2 + spinArc);
+    ctx.arc(ball.x, ball.y, r + 2, -Math.PI / 2 - spinArc, -Math.PI / 2 + spinArc);
     ctx.stroke();
+    ctx.globalAlpha = 1;
   }
 }
 
 function drawCrowd() {
-  // Simplified crowd in the background
-  const crowdY = 5;
-  const crowdHeight = 10;
+  // Stadium stands with crowd
+  const standY = 2;
+  const standHeight = 18;
 
-  // Crowd gets more animated on goals
+  // Draw stadium structure
+  ctx.fillStyle = '#262b44';
+  ctx.fillRect(0, standY, GAME_CONFIG.canvasWidth, standHeight);
+
+  // Animated crowd - looks like individual fans
   const cheer = state.crowdCheer;
+  const time = Date.now() * 0.003;
 
-  for (let x = 0; x < GAME_CONFIG.canvasWidth; x += 4) {
-    const variation = Math.sin(x * 0.5 + Date.now() * 0.003) * cheer;
-    const h = crowdHeight + variation;
-    ctx.fillStyle = x % 8 === 0 ? '#262b44' : '#1a1c2c';
-    ctx.fillRect(x, crowdY, 3, h);
+  for (let x = 0; x < GAME_CONFIG.canvasWidth; x += 3) {
+    // Varied crowd members
+    const crowdColors = ['#41a6f6', '#e43b44', '#ffcd75', '#38b764', '#f4f4f4'];
+    const colorIndex = Math.floor(x / 3) % crowdColors.length;
+
+    // Bottom row - standing fans
+    const variation = Math.sin(x * 0.5 + time) * cheer;
+    const fanHeight = 6 + variation;
+    ctx.fillStyle = crowdColors[colorIndex];
+    ctx.fillRect(x, standY + standHeight - fanHeight - 2, 2, fanHeight);
+
+    // Top row - seated fans
+    ctx.fillStyle = crowdColors[(colorIndex + 2) % crowdColors.length];
+    ctx.fillRect(x, standY + 4, 2, 4);
   }
+
+  // Stadium roof/overhang
+  ctx.fillStyle = '#1a1c2c';
+  ctx.fillRect(0, standY, GAME_CONFIG.canvasWidth, 2);
 }
 
 function drawParticles() {
