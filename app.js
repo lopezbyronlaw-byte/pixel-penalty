@@ -21,21 +21,21 @@ const COLORS = {
   line: '#f4f4f4'
 };
 
-// Teams with simple 3-stripe flag patterns
+// Teams with more authentic flag designs
 const TEAMS = [
-  { id: 'usa', name: 'USA', colors: ['#e43b44', '#f4f4f4', '#41a6f6'] },
-  { id: 'mex', name: 'Mexico', colors: ['#38b764', '#f4f4f4', '#e43b44'] },
-  { id: 'can', name: 'Canada', colors: ['#e43b44', '#f4f4f4', '#e43b44'] },
-  { id: 'bra', name: 'Brazil', colors: ['#38b764', '#ffcd75', '#38b764'] },
-  { id: 'arg', name: 'Argentina', colors: ['#41a6f6', '#f4f4f4', '#41a6f6'] },
-  { id: 'ecu', name: 'Ecuador', colors: ['#ffcd75', '#41a6f6', '#e43b44'] },
-  { id: 'ger', name: 'Germany', colors: ['#1a1c2c', '#e43b44', '#ffcd75'] },
-  { id: 'fra', name: 'France', colors: ['#41a6f6', '#f4f4f4', '#e43b44'] },
-  { id: 'esp', name: 'Spain', colors: ['#e43b44', '#ffcd75', '#e43b44'] },
-  { id: 'eng', name: 'England', colors: ['#f4f4f4', '#e43b44', '#f4f4f4'] },
-  { id: 'ita', name: 'Italy', colors: ['#38b764', '#f4f4f4', '#e43b44'] },
-  { id: 'ned', name: 'Netherlands', colors: ['#e43b44', '#f4f4f4', '#41a6f6'] },
-  { id: 'jpn', name: 'Japan', colors: ['#f4f4f4', '#e43b44', '#f4f4f4'] }
+  { id: 'usa', name: 'USA', colors: ['#e43b44', '#f4f4f4', '#41a6f6'], pattern: 'stripes' },
+  { id: 'mex', name: 'Mexico', colors: ['#38b764', '#f4f4f4', '#e43b44'], pattern: 'vertical' },
+  { id: 'can', name: 'Canada', colors: ['#e43b44', '#f4f4f4', '#e43b44'], pattern: 'vertical' },
+  { id: 'bra', name: 'Brazil', colors: ['#38b764', '#ffcd75', '#41a6f6'], pattern: 'diamond' },
+  { id: 'arg', name: 'Argentina', colors: ['#41a6f6', '#f4f4f4', '#41a6f6'], pattern: 'stripes' },
+  { id: 'ecu', name: 'Ecuador', colors: ['#ffcd75', '#41a6f6', '#e43b44'], pattern: 'stripes' },
+  { id: 'ger', name: 'Germany', colors: ['#1a1c2c', '#e43b44', '#ffcd75'], pattern: 'stripes' },
+  { id: 'fra', name: 'France', colors: ['#41a6f6', '#f4f4f4', '#e43b44'], pattern: 'vertical' },
+  { id: 'esp', name: 'Spain', colors: ['#e43b44', '#ffcd75', '#e43b44'], pattern: 'stripes' },
+  { id: 'eng', name: 'England', colors: ['#f4f4f4', '#e43b44', '#f4f4f4'], pattern: 'cross' },
+  { id: 'ita', name: 'Italy', colors: ['#38b764', '#f4f4f4', '#e43b44'], pattern: 'vertical' },
+  { id: 'ned', name: 'Netherlands', colors: ['#e43b44', '#f4f4f4', '#41a6f6'], pattern: 'stripes' },
+  { id: 'jpn', name: 'Japan', colors: ['#f4f4f4', '#e43b44', '#f4f4f4'], pattern: 'circle' }
 ];
 
 const GAME_CONFIG = {
@@ -220,14 +220,17 @@ function playSound(type) {
       break;
 
     case 'crowd':
+      // LOUD crowd roar for goals!
       osc.type = 'sine';
       osc.frequency.setValueAtTime(100, now);
-      osc.frequency.setValueAtTime(150, now + 0.2);
-      osc.frequency.setValueAtTime(200, now + 0.4);
-      gain.gain.setValueAtTime(0.1, now);
-      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+      osc.frequency.setValueAtTime(200, now + 0.2);
+      osc.frequency.setValueAtTime(300, now + 0.4);
+      osc.frequency.setValueAtTime(250, now + 0.6);
+      osc.frequency.setValueAtTime(150, now + 0.8);
+      gain.gain.setValueAtTime(0.25, now);  // Much louder!
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 1.0);
       osc.start(now);
-      osc.stop(now + 0.6);
+      osc.stop(now + 1.0);
       break;
   }
 }
@@ -284,12 +287,69 @@ function createPixelFlag(team, isLarge = false) {
   canvas.height = size.h;
   const flagCtx = canvas.getContext('2d');
 
-  // Draw 3 vertical stripes
-  const stripeWidth = size.w / 3;
-  team.colors.forEach((color, i) => {
-    flagCtx.fillStyle = color;
-    flagCtx.fillRect(i * stripeWidth, 0, stripeWidth, size.h);
-  });
+  // Draw flag based on pattern
+  switch (team.pattern) {
+    case 'vertical':
+      // Vertical stripes (France, Italy, Mexico, Canada)
+      const vStripeWidth = size.w / 3;
+      team.colors.forEach((color, i) => {
+        flagCtx.fillStyle = color;
+        flagCtx.fillRect(i * vStripeWidth, 0, vStripeWidth, size.h);
+      });
+      break;
+
+    case 'stripes':
+      // Horizontal stripes (USA, Germany, Spain, Argentina, Ecuador, Netherlands)
+      const hStripeHeight = size.h / 3;
+      team.colors.forEach((color, i) => {
+        flagCtx.fillStyle = color;
+        flagCtx.fillRect(0, i * hStripeHeight, size.w, hStripeHeight);
+      });
+      break;
+
+    case 'cross':
+      // Cross pattern (England)
+      flagCtx.fillStyle = team.colors[0]; // White background
+      flagCtx.fillRect(0, 0, size.w, size.h);
+      flagCtx.fillStyle = team.colors[1]; // Red cross
+      const crossWidth = Math.max(2, Math.floor(size.w / 12));
+      flagCtx.fillRect((size.w - crossWidth) / 2, 0, crossWidth, size.h); // Vertical
+      flagCtx.fillRect(0, (size.h - crossWidth) / 2, size.w, crossWidth); // Horizontal
+      break;
+
+    case 'circle':
+      // Circle in center (Japan)
+      flagCtx.fillStyle = team.colors[0]; // White background
+      flagCtx.fillRect(0, 0, size.w, size.h);
+      flagCtx.fillStyle = team.colors[1]; // Red circle
+      const radius = Math.min(size.w, size.h) / 4;
+      flagCtx.beginPath();
+      flagCtx.arc(size.w / 2, size.h / 2, radius, 0, Math.PI * 2);
+      flagCtx.fill();
+      break;
+
+    case 'diamond':
+      // Diamond shape (Brazil)
+      flagCtx.fillStyle = team.colors[0]; // Green background
+      flagCtx.fillRect(0, 0, size.w, size.h);
+      flagCtx.fillStyle = team.colors[1]; // Yellow diamond
+      flagCtx.beginPath();
+      flagCtx.moveTo(size.w / 2, size.h * 0.1);
+      flagCtx.lineTo(size.w * 0.9, size.h / 2);
+      flagCtx.lineTo(size.w / 2, size.h * 0.9);
+      flagCtx.lineTo(size.w * 0.1, size.h / 2);
+      flagCtx.closePath();
+      flagCtx.fill();
+      // Blue circle in center
+      if (team.colors[2]) {
+        flagCtx.fillStyle = team.colors[2];
+        const blueRadius = Math.min(size.w, size.h) / 6;
+        flagCtx.beginPath();
+        flagCtx.arc(size.w / 2, size.h / 2, blueRadius, 0, Math.PI * 2);
+        flagCtx.fill();
+      }
+      break;
+  }
 
   // Add a subtle border
   flagCtx.strokeStyle = '#1a1c2c';
@@ -620,6 +680,7 @@ function checkCollisions() {
   const goalRight = goalLeft + GAME_CONFIG.goalWidth;
   const goalTop = GAME_CONFIG.goalY;
   const goalBottom = goalTop + GAME_CONFIG.goalHeight;
+  const postWidth = GAME_CONFIG.postWidth;
 
   // Check if ball went out of bounds (miss)
   if (ball.x < 0 || ball.x > GAME_CONFIG.canvasWidth || ball.y < 0) {
@@ -628,46 +689,54 @@ function checkCollisions() {
     return;
   }
 
+  // Check keeper collision FIRST (before goal detection)
+  const keeper = state.keeper;
+  if (ball.y <= GAME_CONFIG.keeperY + GAME_CONFIG.keeperHeight &&
+      ball.y >= GAME_CONFIG.keeperY - GAME_CONFIG.ballRadius &&
+      ball.x >= keeper.x - GAME_CONFIG.ballRadius &&
+      ball.x <= keeper.x + GAME_CONFIG.keeperWidth + GAME_CONFIG.ballRadius) {
+    ball.isMoving = false;
+    handleShotResult('save');
+    return;
+  }
+
   // Check goal posts collision
   if (ball.y <= goalBottom && ball.y >= goalTop) {
     // Left post
-    if (ball.x >= goalLeft && ball.x <= goalLeft + GAME_CONFIG.postWidth) {
+    if (ball.x >= goalLeft - GAME_CONFIG.ballRadius &&
+        ball.x <= goalLeft + postWidth + GAME_CONFIG.ballRadius) {
       ball.vx = Math.abs(ball.vx) * 0.5;
-      ball.x = goalLeft + GAME_CONFIG.postWidth + GAME_CONFIG.ballRadius;
+      ball.x = goalLeft + postWidth + GAME_CONFIG.ballRadius;
       playSound('miss');
     }
     // Right post
-    if (ball.x >= goalRight - GAME_CONFIG.postWidth && ball.x <= goalRight) {
+    if (ball.x >= goalRight - postWidth - GAME_CONFIG.ballRadius &&
+        ball.x <= goalRight + GAME_CONFIG.ballRadius) {
       ball.vx = -Math.abs(ball.vx) * 0.5;
-      ball.x = goalRight - GAME_CONFIG.postWidth - GAME_CONFIG.ballRadius;
+      ball.x = goalRight - postWidth - GAME_CONFIG.ballRadius;
       playSound('miss');
     }
   }
 
   // Check crossbar
   if (ball.y <= goalTop + 3 && ball.y >= goalTop - GAME_CONFIG.ballRadius) {
-    if (ball.x > goalLeft && ball.x < goalRight) {
+    if (ball.x > goalLeft + postWidth && ball.x < goalRight - postWidth) {
       ball.vy = Math.abs(ball.vy) * 0.5;
       ball.y = goalTop + GAME_CONFIG.ballRadius + 3;
       playSound('miss');
+      return;
     }
   }
 
-  // Check keeper collision
-  const keeper = state.keeper;
-  if (ball.y <= GAME_CONFIG.keeperY + GAME_CONFIG.keeperHeight &&
-      ball.y >= GAME_CONFIG.keeperY &&
-      ball.x >= keeper.x &&
-      ball.x <= keeper.x + GAME_CONFIG.keeperWidth) {
-    ball.isMoving = false;
-    handleShotResult('save');
-    return;
-  }
+  // GOAL DETECTION - Only count if ball is INSIDE the goal area
+  // Ball must be between the posts AND above the goal line
+  if (ball.y <= goalTop + 10 && ball.y >= goalTop) {
+    const ballCenterX = ball.x;
+    const innerGoalLeft = goalLeft + postWidth;
+    const innerGoalRight = goalRight - postWidth;
 
-  // Check goal scored (ball crosses goal line between posts)
-  if (ball.y <= goalTop + 5) {
-    if (ball.x > goalLeft + GAME_CONFIG.postWidth &&
-        ball.x < goalRight - GAME_CONFIG.postWidth) {
+    // Ball center must be inside the goal
+    if (ballCenterX > innerGoalLeft && ballCenterX < innerGoalRight) {
       ball.isMoving = false;
       handleShotResult('goal');
       return;
@@ -690,29 +759,41 @@ function handleShotResult(result) {
       state.streak++;
       state.maxStreak = Math.max(state.maxStreak, state.streak);
       playSound('goal');
-      playSound('crowd');
-      state.crowdCheer = 3;
-      createParticles(state.ball.x, state.ball.y, '#38b764', 20);
-      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+
+      // LOUD crowd roar!
+      setTimeout(() => playSound('crowd'), 100);
+      setTimeout(() => playSound('crowd'), 300);
+
+      // INTENSE crowd cheering - much bigger value!
+      state.crowdCheer = 8;  // Was 3, now 8 for MUCH more animation!
+
+      // More particles for celebration
+      createParticles(state.ball.x, state.ball.y, '#38b764', 30);
+      createParticles(state.ball.x, state.ball.y, '#ffcd75', 20);
+      createParticles(state.ball.x, state.ball.y, '#41a6f6', 15);
+
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 200]);
       break;
     case 'save':
       state.saves++;
       state.streak = 0;
+      state.crowdCheer = 1; // Small cheer for save
       playSound('save');
       createParticles(state.keeper.x + GAME_CONFIG.keeperWidth / 2, GAME_CONFIG.keeperY, '#e43b44', 10);
       break;
     case 'miss':
       state.misses++;
       state.streak = 0;
+      state.crowdCheer = 0; // No cheer for miss
       playSound('miss');
       break;
   }
 
   updateGameUI();
 
-  // Decay crowd cheer
+  // Decay crowd cheer slowly
   const cheerInterval = setInterval(() => {
-    state.crowdCheer *= 0.9;
+    state.crowdCheer *= 0.92;
     if (state.crowdCheer < 0.1) {
       state.crowdCheer = 0;
       clearInterval(cheerInterval);
@@ -800,57 +881,93 @@ function drawField() {
 function drawGoal() {
   const goalLeft = (GAME_CONFIG.canvasWidth - GAME_CONFIG.goalWidth) / 2;
   const goalTop = GAME_CONFIG.goalY;
+  const goalWidth = GAME_CONFIG.goalWidth;
+  const goalHeight = GAME_CONFIG.goalHeight;
 
-  // 3D goal depth effect (back of goal)
+  // REALISTIC 3D GOAL with depth!
+
+  // Back wall of goal (dark, deep inside)
+  ctx.fillStyle = '#1a1c2c';
+  ctx.fillRect(goalLeft + 5, goalTop + 5, goalWidth - 10, goalHeight - 5);
+
+  // Middle depth layer
   ctx.fillStyle = '#262b44';
-  ctx.fillRect(goalLeft + 2, goalTop + 2, GAME_CONFIG.goalWidth - 4, GAME_CONFIG.goalHeight - 2);
+  ctx.fillRect(goalLeft + 3, goalTop + 3, goalWidth - 6, goalHeight - 3);
 
-  // Realistic net with finer mesh
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-  ctx.fillRect(goalLeft + 3, goalTop + 3, GAME_CONFIG.goalWidth - 6, GAME_CONFIG.goalHeight - 3);
-
-  // Net pattern - finer grid
-  ctx.strokeStyle = 'rgba(139, 155, 180, 0.6)';
+  // Net - realistic white net with perspective
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
   ctx.lineWidth = 1;
-  for (let x = goalLeft + 3; x < goalLeft + GAME_CONFIG.goalWidth; x += 5) {
+
+  // Vertical net lines (with perspective - closer together in back)
+  for (let x = goalLeft + 4; x < goalLeft + goalWidth - 4; x += 4) {
     ctx.beginPath();
-    ctx.moveTo(x, goalTop + 3);
-    ctx.lineTo(x, goalTop + GAME_CONFIG.goalHeight);
-    ctx.stroke();
-  }
-  for (let y = goalTop + 3; y < goalTop + GAME_CONFIG.goalHeight; y += 5) {
-    ctx.beginPath();
-    ctx.moveTo(goalLeft + 3, y);
-    ctx.lineTo(goalLeft + GAME_CONFIG.goalWidth - 3, y);
+    const xOffset = (x - (goalLeft + goalWidth / 2)) * 0.1;
+    ctx.moveTo(x, goalTop + 4);
+    ctx.lineTo(x + xOffset, goalTop + goalHeight);
     ctx.stroke();
   }
 
-  // Goal frame (posts and crossbar) with 3D effect
-  ctx.fillStyle = COLORS.post;
+  // Horizontal net lines
+  for (let y = goalTop + 4; y < goalTop + goalHeight; y += 4) {
+    ctx.beginPath();
+    ctx.moveTo(goalLeft + 4, y);
+    ctx.lineTo(goalLeft + goalWidth - 4, y);
+    ctx.stroke();
+  }
 
-  // Left post with highlight
-  ctx.fillRect(goalLeft, goalTop, GAME_CONFIG.postWidth, GAME_CONFIG.goalHeight);
-  ctx.fillStyle = '#ffe8a0';
-  ctx.fillRect(goalLeft, goalTop, 1, GAME_CONFIG.goalHeight);
+  // Diagonal cross patterns for realism
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+  for (let x = goalLeft + 4; x < goalLeft + goalWidth - 4; x += 8) {
+    for (let y = goalTop + 4; y < goalTop + goalHeight; y += 8) {
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + 4, y + 4);
+      ctx.stroke();
+    }
+  }
 
-  // Right post with highlight
-  ctx.fillStyle = COLORS.post;
-  ctx.fillRect(goalLeft + GAME_CONFIG.goalWidth - GAME_CONFIG.postWidth, goalTop,
-               GAME_CONFIG.postWidth, GAME_CONFIG.goalHeight);
-  ctx.fillStyle = '#ffe8a0';
-  ctx.fillRect(goalLeft + GAME_CONFIG.goalWidth - GAME_CONFIG.postWidth, goalTop,
-               1, GAME_CONFIG.goalHeight);
+  // Goal posts - realistic with cylindrical 3D effect
+  ctx.fillStyle = '#ffcd75'; // Gold posts
 
-  // Crossbar with highlight
-  ctx.fillStyle = COLORS.post;
-  ctx.fillRect(goalLeft, goalTop, GAME_CONFIG.goalWidth, 3);
+  // Left post (with shading)
+  const postWidth = GAME_CONFIG.postWidth;
+  ctx.fillRect(goalLeft, goalTop, postWidth, goalHeight);
+  // Highlight (light reflection)
   ctx.fillStyle = '#ffe8a0';
-  ctx.fillRect(goalLeft, goalTop, GAME_CONFIG.goalWidth, 1);
+  ctx.fillRect(goalLeft, goalTop, 1, goalHeight);
+  // Shadow side
+  ctx.fillStyle = '#d9a860';
+  ctx.fillRect(goalLeft + postWidth - 1, goalTop, 1, goalHeight);
+
+  // Right post (with shading)
+  ctx.fillStyle = '#ffcd75';
+  ctx.fillRect(goalLeft + goalWidth - postWidth, goalTop, postWidth, goalHeight);
+  // Highlight
+  ctx.fillStyle = '#ffe8a0';
+  ctx.fillRect(goalLeft + goalWidth - postWidth, goalTop, 1, goalHeight);
+  // Shadow side
+  ctx.fillStyle = '#d9a860';
+  ctx.fillRect(goalLeft + goalWidth - 1, goalTop, 1, goalHeight);
+
+  // Crossbar (with shading)
+  ctx.fillStyle = '#ffcd75';
+  ctx.fillRect(goalLeft, goalTop, goalWidth, 3);
+  // Highlight on top
+  ctx.fillStyle = '#ffe8a0';
+  ctx.fillRect(goalLeft, goalTop, goalWidth, 1);
+  // Shadow on bottom
+  ctx.fillStyle = '#d9a860';
+  ctx.fillRect(goalLeft, goalTop + 2, goalWidth, 1);
+
+  // Goal corners (post joints)
+  ctx.fillStyle = '#ffcd75';
+  ctx.fillRect(goalLeft, goalTop, postWidth, postWidth);
+  ctx.fillRect(goalLeft + goalWidth - postWidth, goalTop, postWidth, postWidth);
 }
 
 function drawKeeper() {
   const keeper = state.keeper;
-  const kw = GAME_CONFIG.keeperWidth; // Now 5 pixels - skinny!
+  const kw = GAME_CONFIG.keeperWidth; // 5 pixels
   const kh = GAME_CONFIG.keeperHeight;
   const ky = GAME_CONFIG.keeperY;
 
@@ -871,66 +988,89 @@ function drawKeeper() {
     }
   }
 
-  // Skinny goalkeeper (5 pixels wide)
+  // CARTMAN-STYLE GOALKEEPER!
   const centerX = keeper.x + kw / 2;
 
-  // Head (skin tone)
+  // Yellow puff ball hat (iconic Cartman hat)
+  ctx.fillStyle = '#ffcd75';
+  ctx.beginPath();
+  ctx.arc(centerX, ky - 4, 3, 0, Math.PI * 2);
+  ctx.fill();
+  // Puff ball on top
+  ctx.beginPath();
+  ctx.arc(centerX, ky - 6.5, 1.5, 0, Math.PI * 2);
+  ctx.fill();
+  // Hat trim (cyan/blue)
+  ctx.fillStyle = '#41a6f6';
+  ctx.fillRect(keeper.x - 1, ky - 3, kw + 2, 2);
+
+  // Round chubby face (skin tone)
   ctx.fillStyle = '#f4c4a0';
   ctx.beginPath();
-  ctx.arc(centerX, ky - 2, 2.5, 0, Math.PI * 2);
+  ctx.arc(centerX, ky, 2.5, 0, Math.PI * 2);
   ctx.fill();
 
-  // Jersey (goalkeeper color)
-  ctx.fillStyle = '#38b764'; // Green keeper jersey
-  // Skinny torso
-  ctx.fillRect(keeper.x + 1, ky + 1, kw - 2, 7);
+  // Eyes
+  ctx.fillStyle = '#1a1c2c';
+  ctx.fillRect(centerX - 1.5, ky - 0.5, 1, 1);
+  ctx.fillRect(centerX + 0.5, ky - 0.5, 1, 1);
+
+  // Red jacket (Cartman's iconic red jacket)
+  ctx.fillStyle = '#e43b44'; // Red jacket
+  // Chubby body
+  ctx.fillRect(keeper.x, ky + 3, kw, 9);
+
+  // Brown trim on jacket
+  ctx.fillStyle = '#8b5a3c';
+  ctx.fillRect(keeper.x, ky + 3, kw, 1);
+  ctx.fillRect(keeper.x, ky + 11, kw, 1);
 
   // Arms - position depends on state
   const armExtension = keeper.state !== 'idle' ? keeper.diveProgress * 10 : 0;
 
+  ctx.fillStyle = '#e43b44'; // Red jacket sleeves
+
   if (keeper.state === 'diving-left') {
     // Left arm extended far
-    ctx.fillRect(keeper.x - 1 - armExtension, ky + 2, 2 + armExtension, 2);
+    ctx.fillRect(keeper.x - 1 - armExtension, ky + 5, 2 + armExtension, 3);
     // Right arm
-    ctx.fillRect(keeper.x + kw - 1, ky + 2, 2, 2);
-    // Gloves
+    ctx.fillRect(keeper.x + kw - 1, ky + 5, 2, 3);
+    // Yellow gloves
     ctx.fillStyle = '#ffcd75';
-    ctx.fillRect(keeper.x - 2 - armExtension, ky + 1, 2, 3);
-    ctx.fillRect(keeper.x + kw - 1, ky + 1, 2, 3);
+    ctx.fillRect(keeper.x - 2 - armExtension, ky + 4, 2, 4);
+    ctx.fillRect(keeper.x + kw - 1, ky + 4, 2, 4);
   } else if (keeper.state === 'diving-right') {
     // Left arm
-    ctx.fillRect(keeper.x - 1, ky + 2, 2, 2);
+    ctx.fillRect(keeper.x - 1, ky + 5, 2, 3);
     // Right arm extended far
-    ctx.fillRect(keeper.x + kw - 1, ky + 2, 2 + armExtension, 2);
-    // Gloves
+    ctx.fillRect(keeper.x + kw - 1, ky + 5, 2 + armExtension, 3);
+    // Yellow gloves
     ctx.fillStyle = '#ffcd75';
-    ctx.fillRect(keeper.x - 1, ky + 1, 2, 3);
-    ctx.fillRect(keeper.x + kw + armExtension - 1, ky + 1, 2, 3);
+    ctx.fillRect(keeper.x - 1, ky + 4, 2, 4);
+    ctx.fillRect(keeper.x + kw + armExtension - 1, ky + 4, 2, 4);
   } else {
     // Both arms raised
-    ctx.fillRect(keeper.x - 1, ky + 1, 2, 4);
-    ctx.fillRect(keeper.x + kw - 1, ky + 1, 2, 4);
-    // Gloves
+    ctx.fillRect(keeper.x - 1, ky + 4, 2, 5);
+    ctx.fillRect(keeper.x + kw - 1, ky + 4, 2, 5);
+    // Yellow gloves
     ctx.fillStyle = '#ffcd75';
-    ctx.fillRect(keeper.x - 1, ky, 2, 2);
-    ctx.fillRect(keeper.x + kw - 1, ky, 2, 2);
+    ctx.fillRect(keeper.x - 1, ky + 3, 2, 2);
+    ctx.fillRect(keeper.x + kw - 1, ky + 3, 2, 2);
   }
 
-  ctx.fillStyle = '#38b764';
+  // Brown pants
+  ctx.fillStyle = '#8b5a3c';
+  ctx.fillRect(keeper.x + 1, ky + 12, kw - 2, 5);
 
-  // Shorts
-  ctx.fillStyle = '#1a1c2c';
-  ctx.fillRect(keeper.x + 1, ky + 8, kw - 2, 4);
-
-  // Skinny legs
+  // Legs
   ctx.fillStyle = '#f4c4a0';
-  ctx.fillRect(keeper.x + 1, ky + 12, 1, 6);
-  ctx.fillRect(keeper.x + kw - 2, ky + 12, 1, 6);
+  ctx.fillRect(keeper.x + 1, ky + 17, 1, 2);
+  ctx.fillRect(keeper.x + kw - 2, ky + 17, 1, 2);
 
-  // Shoes
+  // Black shoes
   ctx.fillStyle = '#1a1c2c';
-  ctx.fillRect(keeper.x + 1, ky + 18, 2, 2);
-  ctx.fillRect(keeper.x + kw - 3, ky + 18, 2, 2);
+  ctx.fillRect(keeper.x + 1, ky + 19, 2, 1);
+  ctx.fillRect(keeper.x + kw - 3, ky + 19, 2, 1);
 
   ctx.restore();
 }
@@ -1001,37 +1141,74 @@ function drawBall() {
 }
 
 function drawCrowd() {
-  // Stadium stands with crowd
-  const standY = 2;
-  const standHeight = 18;
+  // REALISTIC STADIUM with packed crowd!
+  const standY = 1;
+  const standHeight = 20;
 
-  // Draw stadium structure
-  ctx.fillStyle = '#262b44';
+  // Stadium structure background
+  ctx.fillStyle = '#1a1c2c';
   ctx.fillRect(0, standY, GAME_CONFIG.canvasWidth, standHeight);
 
-  // Animated crowd - looks like individual fans
+  // Draw multiple rows of crowd
   const cheer = state.crowdCheer;
-  const time = Date.now() * 0.003;
+  const time = Date.now() * 0.005;
 
-  for (let x = 0; x < GAME_CONFIG.canvasWidth; x += 3) {
-    // Varied crowd members
-    const crowdColors = ['#41a6f6', '#e43b44', '#ffcd75', '#38b764', '#f4f4f4'];
-    const colorIndex = Math.floor(x / 3) % crowdColors.length;
+  // Crowd colors - vibrant fans!
+  const crowdColors = ['#41a6f6', '#e43b44', '#ffcd75', '#38b764', '#f4f4f4', '#ff69b4', '#ffa500'];
 
-    // Bottom row - standing fans
-    const variation = Math.sin(x * 0.5 + time) * cheer;
-    const fanHeight = 6 + variation;
+  // Back row (smaller, darker)
+  for (let x = 0; x < GAME_CONFIG.canvasWidth; x += 2) {
+    const colorIndex = Math.floor(x / 2) % crowdColors.length;
     ctx.fillStyle = crowdColors[colorIndex];
-    ctx.fillRect(x, standY + standHeight - fanHeight - 2, 2, fanHeight);
+    ctx.globalAlpha = 0.5;
+    ctx.fillRect(x, standY + 2, 1, 4);
+  }
+  ctx.globalAlpha = 1;
 
-    // Top row - seated fans
-    ctx.fillStyle = crowdColors[(colorIndex + 2) % crowdColors.length];
-    ctx.fillRect(x, standY + 4, 2, 4);
+  // Middle row - animated waving
+  for (let x = 0; x < GAME_CONFIG.canvasWidth; x += 3) {
+    const colorIndex = Math.floor(x / 3) % crowdColors.length;
+    const waveOffset = Math.sin(x * 0.3 + time) * cheer * 2;
+    const fanHeight = 6 + waveOffset;
+    ctx.fillStyle = crowdColors[colorIndex];
+    ctx.globalAlpha = 0.7;
+    ctx.fillRect(x, standY + 7, 2, fanHeight);
+  }
+  ctx.globalAlpha = 1;
+
+  // Front row - jumping and cheering!
+  for (let x = 0; x < GAME_CONFIG.canvasWidth; x += 3) {
+    const colorIndex = Math.floor(x / 3 + 1) % crowdColors.length;
+    const jumpOffset = Math.sin(x * 0.5 + time * 2) * cheer * 3;
+    const fanHeight = 8 + jumpOffset;
+    const fanY = standY + standHeight - fanHeight - 2 - (cheer > 2 ? jumpOffset : 0);
+
+    // Fan body
+    ctx.fillStyle = crowdColors[colorIndex];
+    ctx.fillRect(x, fanY, 2, fanHeight);
+
+    // Raised arms when cheering
+    if (cheer > 1) {
+      ctx.fillRect(x - 1, fanY + 1, 1, 2); // Left arm
+      ctx.fillRect(x + 2, fanY + 1, 1, 2); // Right arm
+    }
+  }
+
+  // Stadium lights/floodlights effect
+  if (cheer > 2) {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.fillRect(0, standY, GAME_CONFIG.canvasWidth, standHeight);
   }
 
   // Stadium roof/overhang
   ctx.fillStyle = '#1a1c2c';
-  ctx.fillRect(0, standY, GAME_CONFIG.canvasWidth, 2);
+  ctx.fillRect(0, standY, GAME_CONFIG.canvasWidth, 1);
+
+  // Stadium seats structure
+  ctx.fillStyle = '#262b44';
+  for (let y = standY + 6; y < standY + standHeight; y += 3) {
+    ctx.fillRect(0, y, GAME_CONFIG.canvasWidth, 1);
+  }
 }
 
 function drawParticles() {
